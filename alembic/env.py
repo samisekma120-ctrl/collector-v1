@@ -1,11 +1,11 @@
 import os
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+import app.models  # noqa: F401
+from alembic import context
 from app.db.base import Base
-import app.models  # noqa: F401  (important: charge les modèles)
 
 config = context.config
 

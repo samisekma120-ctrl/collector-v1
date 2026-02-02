@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 
+from app.api.routes.auth import router as auth_router
+from app.api.routes.users import router as users_router
 from app.core.config import settings
 from app.core.logging import setup_logging
 
@@ -24,3 +26,8 @@ def root() -> dict:
 @app.get("/health", tags=["health"])
 def health() -> dict:
     return {"status": "ok"}
+
+
+
+app.include_router(auth_router)
+app.include_router(users_router)
