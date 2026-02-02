@@ -10,6 +10,28 @@ jobs:
     permissions:
       contents: read
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/postgres
+      JWT_SECRET: CI_SUPER_SECRET
+      JWT_ALG: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+      LOG_LEVEL: INFO
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,6 +50,10 @@ jobs:
       - name: Ruff
         run: |
           ruff check .
+
+      - name: Alembic upgrade
+        run: |
+          alembic upgrade head
 
       - name: Pytest + coverage
         run: |
