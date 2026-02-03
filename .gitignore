@@ -1,4 +1,4 @@
-
 .env
 .env.*
-
+k8s/*secret*.yml
+!k8s/*secret*.example.yml
