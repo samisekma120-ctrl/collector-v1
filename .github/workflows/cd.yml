@@ -52,12 +52,16 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Configure kubeconfig
+        if: ${{ secrets.KUBECONFIG != '' }}
         run: |
           mkdir -p ~/.kube
-          echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config
+          printf "%s" "${{ secrets.KUBECONFIG }}" > ~/.kube/config
           chmod 600 ~/.kube/config
+          export KUBECONFIG=~/.kube/config
+          kubectl cluster-info
 
       - name: Deploy manifests
+        if: ${{ secrets.KUBECONFIG != '' }}
         run: |
           kubectl get ns ${{ env.K8S_NAMESPACE }} || kubectl create ns ${{ env.K8S_NAMESPACE }}
           kubectl -n ${{ env.K8S_NAMESPACE }} apply -f k8s/
@@ -69,6 +73,14 @@ jobs:
           kubectl -n ${{ env.K8S_NAMESPACE }} rollout status deployment/collector --timeout=180s
 
       - name: Post-deploy checks
+        if: ${{ secrets.KUBECONFIG != '' }}
         run: |
           kubectl -n ${{ env.K8S_NAMESPACE }} get pods -o wide
           kubectl -n ${{ env.K8S_NAMESPACE }} get svc
+
+      - name: Deployment skipped (no KUBECONFIG)
+        if: ${{ secrets.KUBECONFIG == '' }}
+        run: |
+          echo "KUBECONFIG secret is not set. Skipping Kubernetes deployment."
+          echo "Image was built and pushed to GHCR: ${{ env.IMAGE_NAME }}"
+          echo "To enable auto-deploy, set the GitHub Actions secret KUBECONFIG for a reachable cluster."
