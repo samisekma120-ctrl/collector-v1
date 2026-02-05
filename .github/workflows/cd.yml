@@ -51,17 +51,31 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Detect if KUBECONFIG is present without using secrets in expressions
+      - name: Detect kubeconfig
+        id: kube
+        env:
+          KUBECONFIG_SECRET: ${{ secrets.KUBECONFIG }}
+        run: |
+          if [ -n "$KUBECONFIG_SECRET" ]; then
+            echo "has_kubeconfig=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_kubeconfig=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Configure kubeconfig
-        if: ${{ secrets.KUBECONFIG != '' }}
+        if: ${{ steps.kube.outputs.has_kubeconfig == 'true' }}
+        env:
+          KUBECONFIG_SECRET: ${{ secrets.KUBECONFIG }}
         run: |
           mkdir -p ~/.kube
-          printf "%s" "${{ secrets.KUBECONFIG }}" > ~/.kube/config
+          printf "%s" "$KUBECONFIG_SECRET" > ~/.kube/config
           chmod 600 ~/.kube/config
           export KUBECONFIG=~/.kube/config
           kubectl cluster-info
 
       - name: Deploy manifests
-        if: ${{ secrets.KUBECONFIG != '' }}
+        if: ${{ steps.kube.outputs.has_kubeconfig == 'true' }}
         run: |
           kubectl get ns ${{ env.K8S_NAMESPACE }} || kubectl create ns ${{ env.K8S_NAMESPACE }}
           kubectl -n ${{ env.K8S_NAMESPACE }} apply -f k8s/
@@ -73,13 +87,13 @@ jobs:
           kubectl -n ${{ env.K8S_NAMESPACE }} rollout status deployment/collector --timeout=180s
 
       - name: Post-deploy checks
-        if: ${{ secrets.KUBECONFIG != '' }}
+        if: ${{ steps.kube.outputs.has_kubeconfig == 'true' }}
         run: |
           kubectl -n ${{ env.K8S_NAMESPACE }} get pods -o wide
           kubectl -n ${{ env.K8S_NAMESPACE }} get svc
 
       - name: Deployment skipped (no KUBECONFIG)
-        if: ${{ secrets.KUBECONFIG == '' }}
+        if: ${{ steps.kube.outputs.has_kubeconfig == 'false' }}
         run: |
           echo "KUBECONFIG secret is not set. Skipping Kubernetes deployment."
           echo "Image was built and pushed to GHCR: ${{ env.IMAGE_NAME }}"
