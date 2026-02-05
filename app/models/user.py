@@ -1,4 +1,4 @@
-import enum
+from enum import StrEnum
 import uuid
 from datetime import datetime
 
