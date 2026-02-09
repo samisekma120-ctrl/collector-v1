@@ -2,3 +2,13 @@
 .env.*
 k8s/*secret*.yml
 !k8s/*secret*.example.yml
+
+# loadtest outputs
+summary.json
+k6/summary.json
+
+# security reports
+bandit.json
+pip-audit.json
+gitleaks.json
+trivy.json
