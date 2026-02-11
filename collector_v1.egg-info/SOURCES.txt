@@ -7,4 +7,5 @@ collector_v1.egg-info/SOURCES.txt
 collector_v1.egg-info/dependency_links.txt
 collector_v1.egg-info/requires.txt
 collector_v1.egg-info/top_level.txt
+tests/test_auth_flow.py
 tests/test_health.py

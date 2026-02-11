@@ -6,16 +6,23 @@ import bcrypt
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
 
-JWT_SECRET = os.getenv("JWT_SECRET", "").strip()
+# On garde alg/expire en "module constants" (pas dangereux)
 JWT_ALG = os.getenv("JWT_ALG", "HS256").strip()
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 
-if not JWT_SECRET:
-    raise RuntimeError("JWT_SECRET is not set")
+
+def get_jwt_secret() -> str:
+    """
+    Récupère le secret JWT au runtime.
+    IMPORTANT: ne jamais lever une erreur au moment de l'import du module.
+    """
+    secret = os.getenv("JWT_SECRET", "").strip()
+    if not secret:
+        raise RuntimeError("JWT_SECRET is not set")
+    return secret
 
 
 def hash_password(password: str) -> str:
-    # bcrypt travaille en bytes
     pw = password.encode("utf-8")
     salt = bcrypt.gensalt()
     hashed = bcrypt.hashpw(pw, salt)
@@ -38,17 +45,17 @@ def create_access_token(subject: str, extra_claims: dict[str, Any] | None = None
     payload: dict[str, Any] = {
         "sub": subject,
         "iat": int(now.timestamp()),
-        "exp": expire,
+        "exp": int(expire.timestamp()),  # plus standard JSON/JWT
     }
     if extra_claims:
         payload.update(extra_claims)
 
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
+    return jwt.encode(payload, get_jwt_secret(), algorithm=JWT_ALG)
 
 
 def decode_token(token: str) -> dict[str, Any]:
     try:
-        return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
+        return jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALG])
     except JWTError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
