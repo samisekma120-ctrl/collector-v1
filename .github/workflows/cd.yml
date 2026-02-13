@@ -20,7 +20,6 @@ env:
   DEPLOYMENT_NAME: collector
   CONTAINER_NAME: collector
   SERVICE_NAME: collector
-  SERVICE_PORT: "80"
   HEALTH_PATH: /health
   ROLLOUT_TIMEOUT: 300s
 
@@ -87,23 +86,21 @@ jobs:
           set -euo pipefail
           kubectl get ns "${K8S_NAMESPACE}" >/dev/null 2>&1 || kubectl create ns "${K8S_NAMESPACE}"
 
-      # Optionnel: injecter secrets d'app côté K8s sans les commiter
-      # (crée/maj un Secret "collector-secrets" si les secrets GitHub existent)
-      - name: Apply/Update app secrets (optional)
+      - name: Apply/Update app secrets (required)
         env:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           set -euo pipefail
-          if [ -n "${JWT_SECRET:-}" ] && [ -n "${DATABASE_URL:-}" ]; then
-            kubectl -n "${K8S_NAMESPACE}" create secret generic collector-secrets \
-              --from-literal=JWT_SECRET="${JWT_SECRET}" \
-              --from-literal=DATABASE_URL="${DATABASE_URL}" \
-              --dry-run=client -o yaml | kubectl apply -f -
-            echo "collector-secrets applied."
-          else
-            echo "JWT_SECRET/DATABASE_URL not provided -> skipping secret apply."
+          if [ -z "${JWT_SECRET:-}" ] || [ -z "${DATABASE_URL:-}" ]; then
+            echo "Missing required secrets: JWT_SECRET and/or DATABASE_URL"
+            exit 1
           fi
+          kubectl -n "${K8S_NAMESPACE}" create secret generic collector-secrets \
+            --from-literal=JWT_SECRET="${JWT_SECRET}" \
+            --from-literal=DATABASE_URL="${DATABASE_URL}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          echo "collector-secrets applied."
 
       - name: Apply manifests
         run: |
@@ -122,12 +119,18 @@ jobs:
           kubectl -n "${K8S_NAMESPACE}" get pods -o wide
           kubectl -n "${K8S_NAMESPACE}" get svc
 
-      - name: Healthcheck (port-forward)
+      - name: Healthcheck (port-forward service, auto-detect port)
         run: |
           set -euo pipefail
-          kubectl -n "${K8S_NAMESPACE}" port-forward "svc/${SERVICE_NAME}" 18080:"${CONTAINER_PORT}" >/tmp/port-forward.log 2>&1 &
+
+          SVC_PORT="$(kubectl -n "${K8S_NAMESPACE}" get svc "${SERVICE_NAME}" -o jsonpath='{.spec.ports[0].port}')"
+          echo "Detected service port: ${SVC_PORT}"
+
+          kubectl -n "${K8S_NAMESPACE}" port-forward "svc/${SERVICE_NAME}" 18080:"${SVC_PORT}" >/tmp/port-forward.log 2>&1 &
           PF_PID=$!
           trap "kill ${PF_PID} >/dev/null 2>&1 || true" EXIT
+
+          sleep 2
 
           for i in $(seq 1 30); do
             if curl -fsS "http://127.0.0.1:18080${HEALTH_PATH}" >/dev/null; then
