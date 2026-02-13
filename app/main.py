@@ -29,11 +29,6 @@ app.add_middleware(
         # React (Vite)
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        # Front statique éventuel
-        "http://localhost:5500",
-        "http://127.0.0.1:5500",
-        # si tu ouvres un fichier en file:// (évite en démo si possible)
-        "null",
     ],
     allow_credentials=True,
     allow_methods=["*"],

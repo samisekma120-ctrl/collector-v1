@@ -1,4 +1,5 @@
-const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const API = import.meta.env.VITE_API_BASE_URL;
+if (!API) throw new Error("VITE_API_BASE_URL is missing")
 
 export type ApiError = { status: number; body: any };
 

@@ -15,6 +15,5 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
-def db_session() -> Session:
-    # si tu as déjà get_db, garde-le; sinon adapte
-    return Depends(get_db)
+def db_session(db: Session = Depends(get_db)) -> Session:
+    return db

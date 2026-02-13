@@ -47,3 +47,9 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse
 
     token = create_access_token(subject=str(user.id), extra_claims={"role": user.role.value})
     return TokenResponse(access_token=token)
+
+
+
+def validate_register_role(role: UserRole) -> None:
+    if role == UserRole.admin:
+        raise HTTPException(status_code=403, detail="Admin role cannot be assigned via public registration")
