@@ -102,11 +102,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate nginx config (nginx -t)
+      - name: Generate dummy certs for CI
         run: |
+          mkdir -p nginx/certs
+          openssl req -x509 -nodes -days 1 -newkey rsa:2048 \
+            -keyout nginx/certs/key.pem \
+            -out nginx/certs/cert.pem \
+            -subj "/CN=localhost" \
+            -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
+
+      - name: Validate nginx config (nginx -t) - CI mode
+        run: |
+          set -e
+          mkdir -p /tmp/nginx-ci
+          cp nginx/default.conf /tmp/nginx-ci/default.conf
+
+          # En CI, le hostname "api" n'existe pas -> on remplace pour valider la conf
+          sed -i 's|proxy_pass http://api:8000;|proxy_pass http://127.0.0.1:8000;|g' /tmp/nginx-ci/default.conf
+
           docker run --rm \
-            -v "$PWD/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro" \
             -v "$PWD/nginx/certs:/etc/nginx/certs:ro" \
+            -v "/tmp/nginx-ci/default.conf:/etc/nginx/conf.d/default.conf:ro" \
             nginx:stable nginx -t
 
   docker-trivy:
